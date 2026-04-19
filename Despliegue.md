@@ -187,12 +187,12 @@ Contenido principal:
 ```json
 {
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self'; img-src 'self' https://raw.githubusercontent.com https://assets.pokemon.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://pokeapi.co https://beta.pokeapi.co",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; img-src 'self' https://raw.githubusercontent.com https://assets.pokemon.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://pokeapi.co https://beta.pokeapi.co; frame-ancestors 'none'",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), midi=(), ambient-light-sensor=(), accelerometer=(), gyroscope=(), magnetometer=()"
   },
   "navigationFallback": {
     "rewrite": "/index.html",
@@ -228,6 +228,9 @@ Contenido principal:
     - `https://assets.pokemon.com` a `img-src`.
     - `https://pokeapi.co` y `https://beta.pokeapi.co` a `connect-src`.
   - Se mantuvo `'unsafe-inline'` en `script-src` porque el código heredado utiliza scripts inline que no era posible refactorizar en el contexto de la actividad.
+  - Se reforzó la CSP final con:
+    - `base-uri 'self'` para evitar que un `<base>` malicioso cambie rutas relativas.
+    - `frame-ancestors 'none'` para bloquear framing y proteger contra clickjacking.
 
 Después de estos ajustes, la app volvió a funcionar normalmente y la consola dejó de mostrar errores de CSP.
 

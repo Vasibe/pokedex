@@ -1,201 +1,282 @@
-# Pokédex – Despliegue en Azure Static Web Apps
+# Despliegue de la Pokédex en Azure Static Web Apps
 
-## 1. Descripción general
+## 1. Preparación del proyecto Angular
 
-Este repositorio contiene el despliegue en la nube de una aplicación tipo Pokédex desarrollada originalmente en Angular.  
-La aplicación final se publica como **sitio web estático** (HTML, CSS y JavaScript) sobre **Azure Static Web Apps**, cumpliendo el requisito de que solo necesita un servidor que sirva archivos estáticos.
+### 1.1. Ubicación del código fuente
 
-- URL pública de la app: https://gray-mushroom-0d8216610.7.azurestaticapps.net
-- Proveedor cloud: Microsoft Azure – Static Web Apps
-- Tipo de app: SPA estática (Angular compilado a archivos estáticos)
+El proyecto Angular original de la Pokédex se ubicó en:
 
----
+- `source/pokedex-angular/`
 
-## 2. Creación de la cuenta y recursos en Azure
+Esto incluye:
 
-### 2.1. Registro en Azure
+- `src/app`, `src/assets`, `src/environments`
+- Archivos de configuración (`angular.json`, `package.json`, `tsconfig.app.json`, etc.)
 
-1. Ingresé a https://portal.azure.com con la cuenta universitaria de Microsoft.
-2. Activé la suscripción gratuita de Azure para poder crear recursos básicos.
-3. Verifiqué que la suscripción estuviera activa en el apartado **Subscriptions** del portal.
+### 1.2. Instalación de dependencias
 
-### 2.2. Creación de Azure Static Web App
+Desde Git Bash:
 
-1. En el portal de Azure seleccioné **Create a resource** → **Static Web App**.
-2. Completé los campos principales:
-   - **Subscription**: suscripción gratuita.
-   - **Resource group**: creé un grupo nuevo (por ejemplo, `rg-pokedex-swa`).
-   - **Name**: `pokedex-swa-valeria` (nombre del recurso).
-   - **Region**: región cercana (en mi caso, `Central US`).
-3. En la sección de **Deployment**:
-   - Elegí **GitHub** como fuente de código.
-   - Autoricé a Azure a acceder a mi cuenta de GitHub.
-   - Seleccioné el repositorio `Vasibe/pokedex` y la rama `main`.
-4. En **Build details**:
-   - **App location**: `/` (raíz del repositorio).
-   - API y otros campos: vacíos, porque no tengo backend aquí.
-5. Confirmé la creación. Azure generó automáticamente un archivo de workflow de GitHub Actions (`.github/workflows/azure-static-web-apps-*.yml`) que despliega la app cada vez que hago `git push` a `main`.
+```bash
+cd source/pokedex-angular
+npm install
+```
 
----
+Durante la instalación apareció un warning de `husky` indicando que no encontraba `.git` en ese directorio, lo cual es esperado porque el repositorio Git está en la carpeta raíz (`poke-dex-lab`) y no en el subproyecto.  
+El warning no afectó al funcionamiento de la aplicación.
 
-## 3. Estructura del repositorio
+### 1.3. Verificación en modo desarrollo
 
-- `/` (raíz del repo):
-  - Contiene el **build de producción** generado por Angular: `index.html`, `main.*.js`, `runtime.*.js`, `polyfills.*.js`, `styles.*.css`, imágenes, fuentes, etc.
-  - Esta es la carpeta que Azure sirve directamente gracias a `App location = /`.
+Para asegurar que el proyecto funcionaba correctamente:
 
-- `/source/pokedex-angular`:
-  - Código fuente original del proyecto Angular (entregado por el profesor).
-  - Contiene `src/` con `app`, `assets`, `environments`, más archivos de configuración (`angular.json`, `package.json`, `tsconfig*`, etc.).
-  - Aquí es donde ejecuto `npm install`, `ng serve` y `npm run build` durante el desarrollo.
+```bash
+cd source/pokedex-angular
+ng serve
+```
 
-- `/staticwebapp.config.json`:
-  - Archivo de configuración de Azure Static Web Apps.
-  - Define cabeceras HTTP de seguridad (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy).
-  - Configura `navigationFallback` para que las rutas internas de la SPA se resuelvan a `index.html`.
+Angular levantó el servidor de desarrollo en `http://localhost:4200/`.  
+Probé la navegación de:
 
-Esta organización separa claramente:
+- Home (listado de pokémon, filtros, ordenamiento)
+- Detalle de pokémon
+- Sección About
 
-- **Desarrollo**: proyecto Angular completo en `source/pokedex-angular`.
-- **Despliegue**: artefactos estáticos que se sirven en producción desde la raíz del repositorio.
+No se presentaron errores en la consola del navegador en modo desarrollo.
 
 ---
 
-## 4. Proceso de despliegue (resumen)
+## 2. Generación del build estático
 
-1. **Preparar el proyecto Angular:**
+### 2.1. Comando de build
 
-   ```bash
-   cd source/pokedex-angular
-   npm install
-   ng serve   # Verificación en http://localhost:4200
-   ```
+Para generar la versión optimizada y apta para despliegue:
 
-   Verifiqué que la Pokédex funcionara sin errores en local.
+```bash
+cd source/pokedex-angular
+npm run build
+```
 
-2. **Generar el build estático:**
+Angular creó la carpeta:
+
+- `source/pokedex-angular/dist/pokedex-angular/`
+
+con los siguientes archivos relevantes:
+
+- `index.html`
+- `main.*.js`
+- `polyfills.*.js`
+- `runtime.*.js`
+- `styles.*.css`
+- Imágenes y fuentes empaquetadas
+- Chunks lazy para módulos de rutas (home, details, about, etc.)
+
+---
+
+## 3. Organización del repositorio para Azure
+
+### 3.1. Relación con Azure Static Web Apps
+
+Al crear la Static Web App en Azure, configuré:
+
+- Repositorio: `Vasibe/pokedex`
+- Rama: `main`
+- **App location**: `/` (raíz del repo)
+
+Esto significa que Azure esperaba encontrar un sitio estático listo para servir directamente en la raíz del repositorio.
+
+### 3.2. Copia del build a la raíz
+
+Para alinear la salida de Angular con lo que Azure sirve, copié el contenido de `dist/pokedex-angular` a la raíz del proyecto.
+
+Comandos usados desde la raíz (`poke-dex-lab`):
+
+```bash
+cd poke-dex-lab
+
+mkdir -p build-final
+cp -r source/pokedex-angular/dist/pokedex-angular/* build-final/
+cp -r build-final/* .
+```
+
+Ahora la raíz del repo contenía:
+
+- `index.html` (generado por Angular)
+- Todos los bundles JS y CSS
+- Imágenes y fuentes optimizadas
+
+La carpeta `source/pokedex-angular` se mantuvo intacta con el código fuente para futuros cambios.
+
+---
+
+## 4. Configuración del pipeline de despliegue
+
+### 4.1. Creación del workflow de GitHub Actions
+
+Desde el portal de Azure, al crear la Static Web App:
+
+1. Seleccioné GitHub como fuente de código.
+2. Elegí el repo `Vasibe/pokedex` y la rama `main`.
+3. Al finalizar, Azure creó en el repositorio un archivo YAML en `.github/workflows` con un nombre similar a:
+   - `azure-static-web-apps-<hash>.yml`
+
+Este workflow realiza, en cada `git push` a `main`:
+
+- La descarga del repo.
+- La publicación del contenido de la carpeta configurada como App location (`/`) en la Static Web App.
+
+### 4.2. Ciclo de trabajo
+
+Cada vez que hacía cambios relevantes:
+
+```bash
+git add .
+git commit -m "Mensaje descriptivo"
+git push
+```
+
+GitHub Actions ejecutaba el workflow y el portal de Azure mostraba el historial de despliegues en la sección **GitHub Action runs**.
+
+---
+
+## 5. Ajustes y problemas encontrados
+
+### 5.1. Pantalla en blanco en el primer despliegue
+
+En un intento inicial se intentó desplegar un `index.html` de desarrollo (el que solo contiene `<app-root></app-root>` sin los `<script src="...">` del build).  
+Resultado: la página se veía en blanco porque Angular nunca llegaba a montarse.
+
+**Solución:**
+
+- Asegurarse de desplegar el `index.html` generado por `ng build`, que sí incluye las referencias a `runtime.*.js`, `polyfills.*.js`, `main.*.js` y `styles.*.css`.
+
+### 5.2. Errores 404 de imágenes en producción
+
+Tras el primer despliegue del build, aparecían errores 404 en la consola para algunas imágenes, por ejemplo:
+
+- `GET https://.../pokedex-angular/assets/images/pokemon-green.png 404 (Not Found)`
+
+Esto se debía a que, en el código original, algunas rutas estaban pensadas para GitHub Pages (`/pokedex-angular/...`), pero en Azure la aplicación se sirve desde `/`.
+
+**Solución:**
+
+1. Revisar el código fuente en `source/pokedex-angular/src` y actualizar las rutas de assets.
+2. Cambiar rutas tipo `/pokedex-angular/assets/...` por `/assets/...`.
+3. Ejecutar nuevamente:
 
    ```bash
    cd source/pokedex-angular
    npm run build
    ```
 
-   Esto creó `dist/pokedex-angular` con el `index.html` y todos los bundles estáticos.
+4. Volver a copiar el contenido de `dist/pokedex-angular` a la raíz y hacer `git push`.
 
-3. **Copiar el build a la raíz del repo:**
-
-   ```bash
-   cd poke-dex-lab
-   mkdir -p build-final
-   cp -r source/pokedex-angular/dist/pokedex-angular/* build-final/
-   cp -r build-final/* .
-   ```
-
-   De esta forma, la raíz del repo coincidiría con el contenido de `dist`, que es lo que entiende Azure como sitio estático.
-
-4. **Conectar con Azure Static Web Apps:**
-   - Configuré el recurso para usar el repositorio `Vasibe/pokedex`, rama `main` y `App location = /`.
-   - El workflow de GitHub Actions se encarga de desplegar cada nueva versión cuando hago `git push`.
-
-5. **Configurar cabeceras de seguridad y navegación:**
-   - Creé y ajusté `staticwebapp.config.json` para añadir headers de seguridad y `navigationFallback` hacia `index.html`.
-   - Redeplegué la app y validé los cambios.
+Con esto, las imágenes cargaron correctamente tanto en local como en Azure.
 
 ---
 
-## 5. Seguridad: encabezados HTTP y análisis con securityheaders.com
+## 6. Configuración de seguridad (staticwebapp.config.json)
 
-Después de tener la app funcionando en Azure, apliqué buenas prácticas de seguridad web a nivel de cabeceras HTTP.
+### 6.1. Creación del archivo de configuración
 
-### 5.1. Encabezados configurados
+En la raíz del repo (`poke-dex-lab`) se creó el archivo:
 
-En `staticwebapp.config.json` configuré:
+- `staticwebapp.config.json`
 
-- `Content-Security-Policy`:
-  - Restringe orígenes de recursos:
-    - `default-src 'self'`
-    - `img-src 'self' https://raw.githubusercontent.com https://assets.pokemon.com data:`
-    - `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`
-    - `font-src 'self' data: https://fonts.gstatic.com`
-    - `script-src 'self' 'unsafe-inline'`
-    - `connect-src 'self' https://pokeapi.co https://beta.pokeapi.co`
-  - Con esto limito scripts, estilos, imágenes y peticiones XHR a dominios específicos.
+Contenido principal:
 
-- `Strict-Transport-Security`:
-  - `max-age=31536000; includeSubDomains; preload`
-  - Obliga a los navegadores a usar siempre HTTPS con HSTS.
+```json
+{
+  "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; img-src 'self' https://raw.githubusercontent.com https://assets.pokemon.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self' https://pokeapi.co https://beta.pokeapi.co; frame-ancestors 'none'",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), midi=(), ambient-light-sensor=(), accelerometer=(), gyroscope=(), magnetometer=()"
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/*.js",
+      "/*.css",
+      "/*.png",
+      "/*.jpg",
+      "/*.jpeg",
+      "/*.gif",
+      "/*.svg",
+      "/*.ico"
+    ]
+  }
+}
+```
 
-- `X-Content-Type-Options: nosniff`:
-  - Evita que el navegador intente adivinar tipos de contenido (previene ciertos ataques).
+### 6.2. Iteraciones de CSP y problemas encontrados
 
-- `X-Frame-Options: DENY`:
-  - Impide que la app se muestre en iframes externos (mitiga clickjacking).
+- Primera versión de CSP:
+  - Solo permitía `self` y muy pocos dominios externos.
+  - Resultado: se bloquearon recursos legítimos:
+    - Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`)
+    - Imágenes de Pokémon (`assets.pokemon.com`)
+    - Llamadas a `https://beta.pokeapi.co/graphql/v1beta`
+  - La aplicación mostraba errores y se veía una pantalla de error de PokéAPI.
 
-- `Referrer-Policy: no-referrer`:
-  - Reduce la fuga de información de la URL de origen en peticiones externas.
+- Ajustes realizados:
+  - Se añadieron explícitamente:
+    - `https://fonts.googleapis.com` a `style-src`
+    - `https://fonts.gstatic.com` a `font-src`
+    - `https://assets.pokemon.com` a `img-src`
+    - `https://pokeapi.co` y `https://beta.pokeapi.co` a `connect-src`
+  - Se mantuvo `'unsafe-inline'` en `script-src` porque el código heredado utiliza scripts inline que no era posible refactorizar en el contexto de la actividad.
+  - Se reforzó la CSP final con:
+    - `base-uri 'self'` para evitar que un `<base>` malicioso cambie rutas relativas.
+    - `frame-ancestors 'none'` para bloquear framing y proteger contra clickjacking.
 
-- `Permissions-Policy`:
-  - `camera=(), microphone=(), geolocation=(), payment=(), usb=()`
-  - Deniega explícitamente permisos del navegador que la app no utiliza.
+Después de estos ajustes, la app volvió a funcionar normalmente y la consola dejó de mostrar errores de CSP.
 
-Además, configuré:
+### 6.3. navigationFallback para rutas de SPA
 
-- `navigationFallback` para que las rutas internas de la SPA (`/pokemon/4`, `/about`, etc.) se redirijan a `index.html`, evitando 404 de Azure cuando se recarga la página.
+Sin configuración adicional, recargar la página en rutas como `/pokemon/4` puede provocar 404 de Azure.  
+El bloque `navigationFallback`:
 
-### 5.2. Resultado del escaneo en securityheaders.com
-
-- Ejecuté el escaneo en https://securityheaders.com contra la URL:
-  - `https://gray-mushroom-0d8216610.7.azurestaticapps.net`
-- Resultado: **calificación A**, con todos los encabezados principales en verde.
-- El sitio indica una advertencia sobre el uso de `'unsafe-inline'` en `script-src`.  
-  En este contexto lo acepté como trade-off porque el código heredado de la Pokédex utiliza scripts inline y no puedo refactorizar la app completa, pero la CSP sigue limitando scripts a mi propio dominio y a los orígenes estrictamente necesarios.
-
-La captura del reporte de Security Headers forma parte del material entregado.
+- `rewrite: "/index.html"` indica que cualquier ruta desconocida debe responder con `index.html`, permitiendo que Angular se encargue del ruteo.
+- `exclude` evita que esta regla afecte a recursos estáticos (JS, CSS, imágenes, etc.), que siguen devolviendo 404 real si no existen.
 
 ---
 
-## 6. Análisis personal
+## 7. Verificación de seguridad con SecurityHeaders.com
 
-### 6.1. ¿Qué vulnerabilidades ayudan a prevenir los encabezados implementados?
+Para validar los encabezados de seguridad configurados:
 
-- **Content-Security-Policy:**
-  - Reduce el riesgo de ataques de Cross-Site Scripting (XSS) al limitar de dónde se pueden cargar scripts, estilos e imágenes.
-  - Evita la carga de recursos desde dominios no autorizados, lo que dificulta la inyección de contenido malicioso.
+1. Accedí a https://securityheaders.com.
+2. Analicé la URL de la Static Web App:
+   - `https://gray-mushroom-0d8216610.7.azurestaticapps.net`
 
-- **Strict-Transport-Security:**
-  - Obliga el uso de HTTPS, evitando ataques de tipo downgrade y reduciendo la posibilidad de sniffing de tráfico en HTTP plano.
+3. Resultado final:
+   - Calificación: **A**
+   - Headers en verde:
+     - `Strict-Transport-Security`
+     - `Referrer-Policy`
+     - `X-Content-Type-Options`
+     - `Content-Security-Policy`
+     - `X-Frame-Options`
+     - `Permissions-Policy`
+   - Advertencia:
+     - Indica que la política CSP incluye `'unsafe-inline'` en `script-src`.  
+       Esta decisión se tomó conscientemente debido al uso de scripts inline en el código original.
 
-- **X-Content-Type-Options (nosniff):**
-  - Evita que el navegador interprete archivos con tipos de contenido incorrectos, mitigando ciertos vectores de ataque que se aprovechan de esa “adivinación”.
+La captura del reporte se guarda como evidencia en la entrega de la actividad.
 
-- **X-Frame-Options (DENY):**
-  - Previene que la aplicación se incruste en iframes de terceros, reduciendo el riesgo de clickjacking.
+---
 
-- **Referrer-Policy (no-referrer):**
-  - Minimiza la exposición de la URL interna de la app en peticiones a otros dominios, lo que protege información sensible en rutas o parámetros.
+## 8. Conclusión
 
-- **Permissions-Policy:**
-  - Bloquea funcionalidades como cámara, micrófono, geolocalización, pago o USB que la aplicación no necesita, reduciendo la superficie de ataque en el navegador.
+El despliegue de la Pokédex en Azure Static Web Apps requirió:
 
-### 6.2. ¿Qué aprendí sobre la relación entre despliegue y seguridad web?
+- Entender que la plataforma sirve **archivos estáticos** y que, para proyectos Angular, es necesario desplegar el contenido de `dist`, no la carpeta `src`.
+- Ajustar la estructura del repo para que la raíz coincida con el build.
+- Resolver errores de rutas y assets (404) ocasionados por diferencias entre el despliegue original del autor y el entorno Azure.
+- Configurar cabeceras de seguridad HTTP en `staticwebapp.config.json`, equilibrando seguridad y funcionalidad.
+- Validar la configuración mediante un escaneo externo (`securityheaders.com`) hasta alcanzar una calificación A.
 
-- Que desplegar una SPA (Angular) como **web estática** implica entender qué artefactos realmente consume el navegador: no se sube `src`, se sube **`dist`**.
-- Que la elección de la carpeta de despliegue y la configuración de `App location` en Azure están muy relacionadas: si no coinciden, aparecen errores 404 y pantallas en blanco.
-- Que las políticas de seguridad (especialmente CSP) no se pueden aplicar de forma “genérica”: hay que alinearlas con los dominios y recursos que la app realmente utiliza, o se rompe la funcionalidad.
-- Que herramientas como `securityheaders.com` son útiles para validar y ajustar la configuración, pero también hay que interpretar sus advertencias según el contexto del proyecto.
-
-### 6.3. ¿Qué desafíos encontré en el proceso?
-
-- **Despliegue inicial en blanco:**
-  - El primer intento de despliegue usaba un `index.html` de desarrollo (solo `<app-root>` sin bundles JS), lo que resultaba en una pantalla en blanco.
-  - La solución fue generar el build con Angular (`npm run build`) y desplegar el contenido de `dist/pokedex-angular` en la carpeta que Azure sirve.
-
-- **Rutas y assets con 404:**
-  - Aparecían 404 en imágenes porque algunas rutas estaban pensadas para GitHub Pages (`/pokedex-angular/assets/...`).
-  - Ajusté las rutas a `/assets/...` y volví a compilar para que coincidieran con el despliegue en Azure.
-
-- **Ajuste fino de Content-Security-Policy:**
-  - Una CSP demasiado estricta rompía la app (bloqueaba Google Fonts, assets de Pokémon y las llamadas a PokéAPI).
-  - Tuve que iterar la configuración para permitir únicamente los dominios que el código heredado realmente necesita, buscando un equilibrio entre seguridad y funcionalidad.
-
-En conjunto, la actividad me ayudó a ver que **despliegue y seguridad web están directamente conectados**: no basta con “subir la app”, también hay que entender cómo se sirven los archivos y qué controles de seguridad se aplican a nivel de servidor.
+El resultado final es una aplicación funcional, accesible desde una URL pública y con una configuración de seguridad razonablemente robusta para el contexto de la actividad.
